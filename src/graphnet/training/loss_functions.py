@@ -543,3 +543,24 @@ class RMSEVonMisesFisher3DLoss(EnsembleLoss):
             loss_factors=[1, vmfs_factor],
             prediction_keys=[[0, 1, 2], [0, 1, 2, 3]],
         )
+
+class NegativeLogLikelihoodLoss(LossFunction):
+    """Negative Log Likelihood loss for heteroscedastic data"""
+
+    def _forward(self, prediction: Tensor, target: Tensor) -> Tensor:
+        mu = prediction[:, 0] # Predicted energy
+        log_sigma2_raw = prediction[:, 1] # predicted log variance
+        log_sigma2 = torch.clamp(log_sigma2_raw.clone(), min=-10.0, max=10.0)
+        sigma2 = torch.exp(log_sigma2)
+        sigma2 = torch.clamp(sigma2, min=1e-6)
+
+        nll = 0.5 * (log_sigma2 + ((target[:, 0] - mu) ** 2) / sigma2)
+
+        if torch.isnan(nll).any():
+            print("Found NaN in NLL loss!")
+            print("mu:", mu)
+            print("log_sigma2:", log_sigma2)
+            print("sigma2:", sigma2)
+            print("target:", target[:, 0])
+
+        return nll

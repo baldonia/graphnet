@@ -6,7 +6,7 @@ import versioneer
 
 # Requirements definitions
 SETUP_REQUIRES = [
-    "setuptools>=68.2.2",
+    "setuptools>=68.2.2,<69.0.0",
 ]
 
 INSTALL_REQUIRES = [
@@ -48,6 +48,16 @@ EXTRAS_REQUIRE = {
         "sphinx-autodoc-typehints",
         "versioneer",
         "flake8",
+    ],
+    # --- PyTorch 2.2.0 ---
+    "torch-22-cu121": [
+        "torch==2.2.0+cu121",
+        "torch-geometric",
+        "torch_scatter",
+        "torch_sparse",
+        "torch_cluster",
+        "torch_spline_conv",
+        "pytorch-lightning>=2.0",
     ],
     # --- PyTorch 2.5.0 ---
     "torch-25-cpu": [
@@ -163,7 +173,7 @@ EXTRAS_REQUIRE = {
         "pytorch-lightning>=2.0",
     ],
     "torch-27-cu128": [
-        "torch==2.7.0+cu128",
+        "torch==2.7.0",
         "torch-geometric",
         "pyg_lib",
         "torch_scatter",

@@ -4,5 +4,5 @@ from .graphnet_file_reader import GraphNeTFileReader
 from .i3reader import I3Reader
 from .internal_parquet_reader import ParquetReader
 from .liquido_reader import LiquidOReader
-from .ratpac_reader import NtupleReader
+from .ratpac_reader import NtupleReader, NtupleReader_digitdata, NtupleReader_lognormaldata
 from .prometheus_reader import PrometheusReader
