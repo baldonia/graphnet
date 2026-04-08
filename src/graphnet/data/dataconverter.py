@@ -19,7 +19,6 @@ from .writers.graphnet_writer import GraphNeTWriter
 from .extractors import Extractor
 from .extractors.icecube import I3Extractor
 from .extractors.liquido import H5Extractor
-from .extractors.ratpac import NtupleExtractor
 from .extractors.internal import ParquetExtractor
 from .extractors.prometheus import PrometheusExtractor
 
@@ -51,7 +50,6 @@ class DataConverter(ABC, Logger):
             List[I3Extractor],
             List[ParquetExtractor],
             List[H5Extractor],
-            List[NtupleExtractor],
             List[PrometheusExtractor],
         ],
         index_column: str = "event_no",

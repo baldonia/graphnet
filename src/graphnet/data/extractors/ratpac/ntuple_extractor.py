@@ -1,39 +1,30 @@
 """ratpac-two data extractor for Ntuple Files."""
-from typing import Dict, Any, List
+from typing import Dict, Any, Optional
 import numpy as np
 
 from graphnet.data.extractors import Extractor
 
+class NtupleHitExtractor(Extractor):
+    """
+    Ntuple Extractor for `HitData`. 
+    Handles digit and lognormal charge types.
+    Applies time smearing strictly for training data.
+    """
 
-class NtupleExtractor(Extractor):
-
-    def __init__(self, extractor_name: str, column_names: List[str]):
-        # Member variable(s)
-        self._table = extractor_name
-        self._column_names = column_names
-        super().__init__(extractor_name=extractor_name)
-
-class MCHitExtractorTrain_lognormal(Extractor):
-    """Extractor for `HitData` in ratpac-two ntuple ROOT files. Uses lognormal pulse fitting."""
-
-    def __init__(self, output_keys: Dict[str, str] = None) -> None:
-        """
-        Parameters:
-            output_keys (Dict[str, str]): A mapping from internal names to desired output keys.
-                The default mapping is:
-                    {
-                        'id': 'Photosensor_id',
-                        'x': 'photosensor_x',
-                        'y': 'photosensor_y',
-                        'z': 'photosensor_z',
-                        'ze': 'photosensor_zenith',
-                        'az': 'photosensor_azimuth',
-                        't': 'photosensor_time',
-                        'charge': 'charge',
-                    }
-        """
+    def __init__(
+        self, 
+        charge_type: str, 
+        is_training: bool,
+        output_keys: Optional[Dict[str, str]] = None
+    ) -> None:
         super().__init__(extractor_name="HitData")
-        # Default keys
+        self.charge_type = charge_type.lower()
+        self.is_training = is_training
+        
+        if self.charge_type not in ['digit', 'lognormal']:
+            raise ValueError(f"Unsupported charge type: '{self.charge_type}'. Must be 'digit' or 'lognormal'.")
+        
+        # Default output keys
         self._output_keys = {
             'id': 'Photosensor_id',
             'x': 'photosensor_x',
@@ -44,22 +35,35 @@ class MCHitExtractorTrain_lognormal(Extractor):
             't': 'photosensor_time',
             'charge': 'charge',
         }
-        # Update with provided keys if any
         if output_keys is not None:
             self._output_keys.update(output_keys)
 
     def __call__(self, event_data: Dict[str, Any], maps: Dict[str, Any]) -> Dict[str, Any]:
+        # 1. Select input keys based on charge_type
+        if self.charge_type == 'lognormal':
+            idx = event_data['fit_pmtid_Lognormal']
+            base_time = event_data['fit_time_Lognormal']
+            charge = event_data['fit_charge_Lognormal']
+        elif self.charge_type == 'digit':
+            idx = event_data['digitPMTID']
+            base_time = event_data['digitTime']
+            charge = event_data['digitCharge']
 
-        idx = event_data['fit_pmtid_Lognormal']
-        #I need to consider the implications of returning none before adding this cut
-        #if len(idx) > 3:
+        # 2. Geometry Mapping
         pmtu = maps['pmtU'][0][idx].astype(np.float32)
         pmtv = maps['pmtV'][0][idx].astype(np.float32)
         pmtw = maps['pmtW'][0][idx].astype(np.float32)
-        # Center events around 0 and add random time spread
-        time = event_data['fit_time_Lognormal'] + event_data['triggerTime'] + np.random.normal(0, 20)
 
-        data = {
+        # 3. Time calculation
+        # Training events removes trigger offset and adds normal smearing
+        # Reco events (both sim and data) use the raw hit time
+        if self.is_training:
+            time = base_time + event_data['triggerTime'] + np.random.normal(0, 20)
+        else:
+            time = base_time
+
+        # 4. Build output dictionary
+        return {
             self._output_keys['id']: idx,
             self._output_keys['x']: maps['pmtX'][0][idx].astype(np.float32),
             self._output_keys['y']: maps['pmtY'][0][idx].astype(np.float32),
@@ -67,273 +71,42 @@ class MCHitExtractorTrain_lognormal(Extractor):
             self._output_keys['ze']: np.arccos(pmtw).astype(np.float32),
             self._output_keys['az']: np.mod(np.arctan2(pmtv, pmtu), 2 * np.pi).astype(np.float32),
             self._output_keys['t']: time.astype(np.float32),
-            self._output_keys['charge']: event_data['fit_charge_Lognormal'].astype(np.float32),
+            self._output_keys['charge']: charge.astype(np.float32),
         }
 
-        return data
 
-        #else:
+class NtupleTruthExtractor(Extractor):
+    """
+    Ntuple Extractor for `TruthData`. 
+    Handles real Monte Carlo truth extraction or zero-spoofing for blind data.
+    """
 
-        #    return None
-
-
-class MCHitExtractorReco_lognormal(Extractor):
-    """Extractor for `HitData` in ratpac-two ntuple ROOT files. Uses lognormal pulse fitting."""
-
-    def __init__(self, output_keys: Dict[str, str] = None) -> None:
-        """
-        Parameters:
-            output_keys (Dict[str, str]): A mapping from internal names to desired output keys.
-                The default mapping is:
-                    {
-                        'id': 'Photosensor_id',
-                        'x': 'photosensor_x',
-                        'y': 'photosensor_y',
-                        'z': 'photosensor_z',
-                        'ze': 'photosensor_zenith',
-                        'az': 'photosensor_azimuth',
-                        't': 'photosensor_time',
-                        'charge': 'charge',
-                    }
-        """
-        super().__init__(extractor_name="HitData")
-        # Default keys
-        self._output_keys = {
-            'id': 'Photosensor_id',
-            'x': 'photosensor_x',
-            'y': 'photosensor_y',
-            'z': 'photosensor_z',
-            'ze': 'photosensor_zenith',
-            'az': 'photosensor_azimuth',
-            't': 'photosensor_time',
-            'charge': 'charge',
-        }
-        # Update with provided keys if any
-        if output_keys is not None:
-            self._output_keys.update(output_keys)
-
-    def __call__(self, event_data: Dict[str, Any], maps: Dict[str, Any]) -> Dict[str, Any]:
-
-        idx = event_data['fit_pmtid_Lognormal']
-        #I need to consider the implications of returning none before adding this cut
-        #if len(idx) > 3:
-        pmtu = maps['pmtU'][0][idx].astype(np.float32)
-        pmtv = maps['pmtV'][0][idx].astype(np.float32)
-        pmtw = maps['pmtW'][0][idx].astype(np.float32)
-
-        data = {
-            self._output_keys['id']: idx,
-            self._output_keys['x']: maps['pmtX'][0][idx].astype(np.float32),
-            self._output_keys['y']: maps['pmtY'][0][idx].astype(np.float32),
-            self._output_keys['z']: maps['pmtZ'][0][idx].astype(np.float32),
-            self._output_keys['ze']: np.arccos(pmtw).astype(np.float32),
-            self._output_keys['az']: np.mod(np.arctan2(pmtv, pmtu), 2 * np.pi).astype(np.float32),
-            self._output_keys['t']: event_data['fit_time_Lognormal'].astype(np.float32),
-            self._output_keys['charge']: event_data['fit_charge_Lognormal'].astype(np.float32),
-        }
-
-        return data
-
-        #else:
-
-        #    return None
-
-class MCHitExtractorTrain_digit(Extractor):
-    """Extractor for `HitData` in ratpac-two ntuple ROOT files. Uses integrated wfm charge."""
-
-    def __init__(self, output_keys: Dict[str, str] = None) -> None:
-        """
-        Parameters:
-            output_keys (Dict[str, str]): A mapping from internal names to desired output keys.
-                The default mapping is:
-                    {
-                        'id': 'Photosensor_id',
-                        'x': 'photosensor_x',
-                        'y': 'photosensor_y',
-                        'z': 'photosensor_z',
-                        'ze': 'photosensor_zenith',
-                        'az': 'photosensor_azimuth',
-                        't': 'photosensor_time',
-                        'charge': 'charge',
-                    }
-        """
-        super().__init__(extractor_name="HitData")
-        # Default keys
-        self._output_keys = {
-            'id': 'Photosensor_id',
-            'x': 'photosensor_x',
-            'y': 'photosensor_y',
-            'z': 'photosensor_z',
-            'ze': 'photosensor_zenith',
-            'az': 'photosensor_azimuth',
-            't': 'photosensor_time',
-            'charge': 'charge',
-        }
-        # Update with provided keys if any
-        if output_keys is not None:
-            self._output_keys.update(output_keys)
-
-    def __call__(self, event_data: Dict[str, Any], maps: Dict[str, Any]) -> Dict[str, Any]:
-
-        idx = event_data['digitPMTID']
-        #I need to consider the implications of returning none before adding this cut
-        #if len(idx) > 3:
-        pmtu = maps['pmtU'][0][idx].astype(np.float32)
-        pmtv = maps['pmtV'][0][idx].astype(np.float32)
-        pmtw = maps['pmtW'][0][idx].astype(np.float32)
-        # Center events around 0 and add random time spread
-        time = event_data['digitTime'] + event_data['triggerTime'] + np.random.normal(0, 20)
-
-        data = {
-            self._output_keys['id']: idx,
-            self._output_keys['x']: maps['pmtX'][0][idx].astype(np.float32),
-            self._output_keys['y']: maps['pmtY'][0][idx].astype(np.float32),
-            self._output_keys['z']: maps['pmtZ'][0][idx].astype(np.float32),
-            self._output_keys['ze']: np.arccos(pmtw).astype(np.float32),
-            self._output_keys['az']: np.mod(np.arctan2(pmtv, pmtu), 2 * np.pi).astype(np.float32),
-            self._output_keys['t']: time.astype(np.float32),
-            self._output_keys['charge']: event_data['digitCharge'].astype(np.float32),
-        }
-
-        return data
-
-        #else:
-
-        #    return None
-
-class MCHitExtractorReco_digit(Extractor):
-    """Extractor for `HitData` in ratpac-two ntuple ROOT files. Uses integrated wfm charge."""
-
-    def __init__(self, output_keys: Dict[str, str] = None) -> None:
-        """
-        Parameters:
-            output_keys (Dict[str, str]): A mapping from internal names to desired output keys.
-                The default mapping is:
-                    {
-                        'id': 'Photosensor_id',
-                        'x': 'photosensor_x',
-                        'y': 'photosensor_y',
-                        'z': 'photosensor_z',
-                        'ze': 'photosensor_zenith',
-                        'az': 'photosensor_azimuth',
-                        't': 'photosensor_time',
-                        'charge': 'charge',
-                    }
-        """
-        super().__init__(extractor_name="HitData")
-        # Default keys
-        self._output_keys = {
-            'id': 'Photosensor_id',
-            'x': 'photosensor_x',
-            'y': 'photosensor_y',
-            'z': 'photosensor_z',
-            'ze': 'photosensor_zenith',
-            'az': 'photosensor_azimuth',
-            't': 'photosensor_time',
-            'charge': 'charge',
-        }
-        # Update with provided keys if any
-        if output_keys is not None:
-            self._output_keys.update(output_keys)
-
-    def __call__(self, event_data: Dict[str, Any], maps: Dict[str, Any]) -> Dict[str, Any]:
-
-        idx = event_data['digitPMTID']
-        #I need to consider the implications of returning none before adding this cut
-        #if len(idx) > 3:
-        pmtu = maps['pmtU'][0][idx].astype(np.float32)
-        pmtv = maps['pmtV'][0][idx].astype(np.float32)
-        pmtw = maps['pmtW'][0][idx].astype(np.float32)
-
-        data = {
-            self._output_keys['id']: idx,
-            self._output_keys['x']: maps['pmtX'][0][idx].astype(np.float32),
-            self._output_keys['y']: maps['pmtY'][0][idx].astype(np.float32),
-            self._output_keys['z']: maps['pmtZ'][0][idx].astype(np.float32),
-            self._output_keys['ze']: np.arccos(pmtw).astype(np.float32),
-            self._output_keys['az']: np.mod(np.arctan2(pmtv, pmtu), 2 * np.pi).astype(np.float32),
-            self._output_keys['t']: event_data['digitTime'].astype(np.float32),
-            self._output_keys['charge']: event_data['digitCharge'].astype(np.float32),
-        }
-
-        return data
-
-        #else:
-
-        #    return None
-
-class MCTruthExtractor(Extractor):
-    """Extractor for `TruthData` in Eos ntuple files for simulation."""
-
-    def __init__(self) -> None:
+    def __init__(self, is_data: bool = False) -> None:
         super().__init__(extractor_name="TruthData")
+        self.is_data = is_data
 
     def __call__(self, event_data: Dict[str, Any]) -> Dict[str, Any]:
-        # Get particle gun vertex information (unit: mm)
-        mcx = event_data['mcx']
-        mcy = event_data['mcy']
-        mcz = event_data['mcz']
-        # Get initial direction information (u v w share the same coordinate system as x y z)
-        mcu = event_data['mcu']
-        mcv = event_data['mcv']
-        mcw = event_data['mcw']
-        # get particle gun time (unit: ns)
-        mct = event_data['mct']
-        # initial kinetic energy of particle (unit: MeV)
-        mcke = event_data['mcke']
-        # pdg identifier for initial particle
-        mcpdg = event_data['mcpdg']
+        if self.is_data:
+            # Blind Data: Return dummy values to satisfy the GraphNet schema
+            return {
+                "vertex_x": 0.0, "vertex_y": 0.0, "vertex_z": 0.0,
+                "zenith": 0.0, "azimuth": 0.0, "interaction_time": 0.0,
+                "energy": 0.0, "pid": 0,
+            }
+        else:
+            # Simulation: Extract real MC truth
+            mcu, mcv, mcw = event_data['mcu'], event_data['mcv'], event_data['mcw']
+            
+            mcaz = np.mod(np.arctan2(mcv, mcu), 2 * np.pi).astype(np.float32)
+            mcze = np.arccos(mcw).astype(np.float32)
 
-        #convert direction from cartesian to spherical coordinates
-        mcaz = np.mod(np.arctan2(mcv, mcu), 2 * np.pi).astype(np.float32)
-        mcze = np.arccos(mcw).astype(np.float32)
-
-        data = {
-            "vertex_x": mcx.astype(np.float32),
-            "vertex_y": mcy.astype(np.float32),
-            "vertex_z": mcz.astype(np.float32),
-            "zenith": mcze,
-            "azimuth": mcaz,
-            "interaction_time": mct,
-            "energy": mcke.astype(np.float32),
-            "pid": mcpdg,
-        }
-        return data
-
-class MCTruthExtractor_data(Extractor):
-    """Extractor for `TruthData` in Eos ntuple files for data. Data events do not know truth information."""
-
-    def __init__(self) -> None:
-        super().__init__(extractor_name="TruthData")
-
-    def __call__(self, event_data: Dict[str, Any]) -> Dict[str, Any]:
-        # Get particle gun vertex information (unit: mm)
-        mcx = 0
-        mcy = 0
-        mcz = 0
-        # Get initial direction information (u v w share the same coordinate system as x y z)
-        mcu = 0
-        mcv = 0
-        mcw = 0
-        # get particle gun time (unit: ns)
-        mct = 0
-        # initial kinetic energy of particle (unit: MeV)
-        mcke = 0
-        # pdg identifier for initial particle
-        mcpdg = 0
-
-        #convert direction from cartesian to spherical coordinates
-        mcaz = 0
-        mcze = 0
-
-        data = {
-            "vertex_x": mcx,
-            "vertex_y": mcy,
-            "vertex_z": mcz,
-            "zenith": mcze,
-            "azimuth": mcaz,
-            "interaction_time": mct,
-            "energy": mcke,
-            "pid": mcpdg,
-        }
-        return data
+            return {
+                "vertex_x": event_data['mcx'].astype(np.float32),
+                "vertex_y": event_data['mcy'].astype(np.float32),
+                "vertex_z": event_data['mcz'].astype(np.float32),
+                "zenith": mcze,
+                "azimuth": mcaz,
+                "interaction_time": event_data['mct'],
+                "energy": event_data['mcke'].astype(np.float32),
+                "pid": event_data['mcpdg'],
+            }

@@ -52,7 +52,7 @@ class FEATURES:
     ]
     KAGGLE = ["x", "y", "z", "time", "charge", "auxiliary"]
     LIQUIDO = ["sipm_x", "sipm_y", "sipm_z", "t"]
-
+    EOS = ["pmt_x", "pmt_y", "pmt_z", "t"]
 
 class TRUTH:
     """Namespace for standard names working with `I3TruthExtractor`."""
@@ -158,6 +158,16 @@ class TRUTH:
     ]
     KAGGLE = ["zenith", "azimuth"]
     LIQUIDO = [
+        "vertex_x",
+        "vertex_y",
+        "vertex_z",
+        "zenith",
+        "azimuth",
+        "interaction_time",
+        "energy",
+        "pid",
+    ]
+    EOS = [
         "vertex_x",
         "vertex_y",
         "vertex_z",

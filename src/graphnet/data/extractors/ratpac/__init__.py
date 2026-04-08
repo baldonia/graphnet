@@ -1,1 +1,1 @@
-from .ntuple_extractor import NtupleExtractor, MCHitExtractorTrain_lognormal, MCHitExtractorReco_lognormal, MCHitExtractorTrain_digit, MCHitExtractorReco_digit, MCTruthExtractor, MCTruthExtractor_data
+from .ntuple_extractor import NtupleHitExtractor, NtupleTruthExtractor
