@@ -16,7 +16,7 @@
 
 **GraphNeT** is an open-source Python framework aimed at providing high quality, user friendly, end-to-end functionality to perform reconstruction tasks at neutrino telescopes using deep learning (DL). GraphNeT makes it fast and easy to train complex models that can provide event reconstruction with state-of-the-art performance, for arbitrary detector configurations, with inference times that are orders of magnitude faster than traditional reconstruction techniques.
 
-Feel free to join the [GraphNeT Slack group](https://join.slack.com/t/graphnet-team/signup)!
+This version of GraphNeT includes code specific to the Eos detector. 
 
 ### Publications using GraphNeT
 
@@ -29,8 +29,77 @@ Feel free to join the [GraphNeT Slack group](https://join.slack.com/t/graphnet-t
 
 ## :gear:  Install
 
+If you plan to develop graphnet off of this repository, be sure to fork this repo and clone your fork. Switch to the `eos` branch.
+```
+git clone https://github.com/path/to/your/fork.git
+git checkout eos
+```
+Navigate to the graphnet directory and run the installation script (you may not want to do this on a login node depending on your cluster setup).
+```
+cd graphnet
+bash install.sh
+```
+After completion of the installation script, activate the new environment and test it.
+```
+conda activate graphnet_dev
+python3 scripts/convert.py --help
+```
+If everything is working, this should output a description of the script and its arguments.
+
+The training and reconstruction scripts use Weights and Biases to log information and track progress. Set up a free account and follow these [instructions](https://docs.wandb.ai/models/quickstart) to get started.
+
+This installation script uses Python 3.9, PyTorch 2.2.0, and assumes CUDA 12.1. If different versions are required for your setup, please consult the official GraphNeT installation instructions below, but be aware that those instructions are for a more recent version of GraphNeT and may not be applicable to this version.
+
 GraphNeT is compatible with Python 3.8 - 3.11, Linux and macOS, and we recommend installing `graphnet` in a separate virtual environment. To install GraphNeT, please follow the [installation instructions](https://graphnet-team.github.io/graphnet/installation/install.html#quick-start)
 
+## Usage
+
+To convert ratpac ntuple files to SQLite db files for use in GraphNet, run
+```
+python3 scripts/converter.py
+```
+To set various options, use the flags:
+* `--input_dir`: Directory containing input ntuple files
+* `--output_dir`: Directory to save SQLite db files
+* `--num_workers`: Number of workers for multiprocessing
+* `--dataset_type`: What type of events. Options [reco_data, reco_sim, train]
+* `--charge_type`: Which charge extraction to use. Options [digit, lognormal]
+
+To train a network for energy reconstruction, run
+```
+python3 scripts/graphnet_energy_train.py
+```
+To set various options, use the flags:
+* `-l`: Label to be added within network output directory name
+* `-dp`: Path to input training files (can use wildcards)
+
+To train a network for positron/electron PID, run
+```
+python3 scripts/graphnet_pid_train.py
+```
+Options are set in the same way as the energy training script.
+
+To reconstruct events (both energy and PID), run
+```
+python3 scripts/graphnet_reco.py
+```
+To set various options, use the flags:
+* `-dp`: Wildcard path to input files
+* `-m`: Path to directory containing network information (usually output directory from training scripts)
+* `-t`: Input event type. Options [sim, data]
+* `-od`: Output directory to save results
+* `-b`: Batch size (default 128)
+* `-nw`: Number of cpu workers (default 4)
+* `-g`: Set to -1 if only using CPU (no GPU)
+* `-f`: Fraction of events to reconstruct (default 1.0)
+
+If a training script crashes without saving the model information, if a model checkpoint was saved in the WandB logs, you can build a working model from that checkpoint. This script is for a PID model, but it can be modified for energy models.
+```
+python3 scripts/get_pid_model_from_checkpoint.py
+```
+To set various options, use the flags:
+* `--checkpoint`: Path to `.ckpt` file
+* `--outdir`: Output directory
 
 ## :ringed_planet:  Use cases
 
