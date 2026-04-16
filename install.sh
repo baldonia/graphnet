@@ -1,11 +1,11 @@
 #!/bin/bash
-# Hardcoded, Guaranteed Developer Setup for HPC Clusters
+# Developer Setup
 # Target: PyTorch 2.2.0 + CUDA 12.1
 
 echo "=========================================="
-echo "  GraphNeT Developer Setup (HPC Edition)"
+echo "  GraphNeT Developer Setup"
 echo "=========================================="
-echo "[INFO] Forcing PyTorch 2.2.0 with CUDA 12.1 to bypass glibc limits."
+echo "[INFO] Forcing PyTorch 2.2.0 with CUDA 12.1"
 echo "------------------------------------------"
 
 # 1. Create the Conda Environment
@@ -21,11 +21,15 @@ echo "[2/4] Installing PyTorch Engine (CUDA 12.1)..."
 conda install pytorch==2.2.0 torchvision==0.17.0 pytorch-cuda=12.1 -c pytorch -c nvidia -y
 
 # 3. Install the PyG C++ Binaries via Conda-Forge
-echo "[3/4] Installing PyTorch Geometric C++ Extensions (conda-forge)..."
+echo "[3/4] Installing PyTorch Geometric C++ Extensions..."
 conda install pyg pytorch-scatter pytorch-sparse pytorch-cluster pytorch-spline-conv -c pyg -c conda-forge -y
 
-# 4. Link the Local Repository
-echo "[4/4] Linking GraphNeT Codebase (Editable Mode)..."
+# 4. Install Scientific Stack via Conda-Forge
+echo "Installing Heavy Dependencies..."
+conda install libstdcxx-ng matplotlib pillow numpy scipy pandas scikit-learn h5py pyarrow polars -c conda-forge -y
+
+# 5. Wire the local code
+echo "Linking local repository..."
 pip install -e .[torch]
 
 echo "=========================================="
